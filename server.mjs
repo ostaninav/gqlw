@@ -1,4 +1,5 @@
 import { createServer } from 'http'
+import { WebSocketServer } from 'ws'
 
 // Хранилище сообщений
 let messages = [
@@ -22,8 +23,7 @@ function parseBody(body) {
 }
 
 // Выполнение GraphQL операций
-function executeOperation(request) {
-  const { query, variables } = request
+function executeOperation({ query, variables }) {
   const cleanQuery = query.replace(/\s+/g, ' ').trim()
 
   // Запрос messages
@@ -58,8 +58,11 @@ function executeOperation(request) {
 
     messages.push(newMessage)
 
+    // Отправляем новое сообщение всем подключенным WebSocket клиентам
+    broadcastNewMessage(newMessage)
+
     return {
-        data :{
+       data : {
         createMessage: newMessage
       }
     }
@@ -68,6 +71,25 @@ function executeOperation(request) {
   return {
     errors: [{ message: 'Unknown operation' }]
   }
+}
+
+// Храним подключенных WebSocket клиентов
+const wsClients = new Set()
+
+// Отправка нового сообщения всем клиентам
+function broadcastNewMessage(message) {
+  const payload = {
+    type: 'data',
+     data: {
+      messageAdded: message
+    }
+  }
+
+  wsClients.forEach(client => {
+    if (client.readyState === client.OPEN) {
+      client.send(JSON.stringify(payload))
+    }
+  })
 }
 
 // Создаем HTTP сервер
@@ -123,8 +145,36 @@ const server = createServer((req, res) => {
   }))
 })
 
+// Создаем WebSocket сервер
+const wss = new WebSocketServer({ server, path: '/graphql' })
+
+wss.on('connection', (ws) => {
+  console.log('✅ WebSocket client connected')
+  wsClients.add(ws)
+
+  // Отправляем текущие сообщения новому клиенту
+  const initialPayload = {
+    type: 'data',
+     data: {
+      messages: messages
+    }
+  }
+  ws.send(JSON.stringify(initialPayload))
+
+  ws.on('close', () => {
+    console.log('❌ WebSocket client disconnected')
+    wsClients.delete(ws)
+  })
+
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error)
+    wsClients.delete(ws)
+  })
+})
+
 const PORT = 4000
 server.listen(PORT, () => {
-  console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`)
+  console.log(`🚀 HTTP Server ready at http://localhost:${PORT}/graphql`)
+  console.log(`🚀 WebSocket Server ready at ws://localhost:${PORT}/graphql`)
   console.log('Initial messages:', messages)
 })
