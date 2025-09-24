@@ -78,7 +78,7 @@ export default {
   name: 'GraphQLDemo',
   setup() {
     const newMessage = ref('')
-    const isConnected = ref(true) // Временно считаем, что подключено
+    const isConnected = ref(true) 
 
     const { loading, error, data, refetch } = useQuery(GET_MESSAGES)
     const { loading: mutationLoading, mutate: createMessageMutation } = useMutation(CREATE_MESSAGE)

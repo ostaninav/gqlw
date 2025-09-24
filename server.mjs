@@ -58,7 +58,6 @@ function executeOperation({ query, variables }) {
 
     messages.push(newMessage)
 
-    // Отправляем новое сообщение всем подключенным WebSocket клиентам
     broadcastNewMessage(newMessage)
 
     return {
@@ -73,10 +72,8 @@ function executeOperation({ query, variables }) {
   }
 }
 
-// Храним подключенных WebSocket клиентов
 const wsClients = new Set()
 
-// Отправка нового сообщения всем клиентам
 function broadcastNewMessage(message) {
   const payload = {
     type: 'data',
@@ -92,7 +89,6 @@ function broadcastNewMessage(message) {
   })
 }
 
-// Создаем HTTP сервер
 const server = createServer((req, res) => {
   // CORS заголовки
   res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173')
@@ -101,14 +97,12 @@ const server = createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.setHeader('Content-Type', 'application/json')
 
-  // Preflight запросы
   if (req.method === 'OPTIONS') {
     res.writeHead(200)
     res.end()
     return
   }
 
-  // Только POST запросы к /graphql
   if (req.method === 'POST' && req.url === '/graphql') {
     let body = ''
     req.on('data', chunk => {

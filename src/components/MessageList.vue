@@ -78,7 +78,6 @@ export default {
     
     const { loading: mutationLoading, mutate: createMessageMutation } = useMutation(CREATE_MESSAGE)
     
-    // WebSocket подключение
     const { 
       isConnected, 
       messages: wsMessages, 
@@ -97,7 +96,6 @@ export default {
           author: 'User' + Math.floor(Math.random() * 1000)
         })
         newMessage.value = ''
-        // Сообщения будут автоматически обновлены через WebSocket
       } catch (error) {
         console.error('Error creating message:', error)
       }
@@ -132,7 +130,98 @@ export default {
 </script>
 
 <style scoped>
-/* ... предыдущие стили ... */
+.message-app {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.message-form {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.message-form input {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 16px;
+}
+
+.message-form button {
+  padding: 12px 24px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.message-form button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+  font-style: italic;
+}
+
+.error {
+  padding: 20px;
+  background: #f8d7da;
+  color: #721c24;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.no-messages {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-style: italic;
+}
+
+.messages-list {
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.message-item {
+  padding: 16px;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.message-item:last-child {
+  border-bottom: none;
+}
+
+.message-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.message-header strong {
+  color: #007bff;
+}
+
+.message-header small {
+  color: #6c757d;
+  font-size: 14px;
+}
+
+.message-content {
+  line-height: 1.5;
+  color: #212529;
+}
 
 .connection-status {
   padding: 10px;
