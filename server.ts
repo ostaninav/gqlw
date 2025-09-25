@@ -1,11 +1,39 @@
-import { createServer } from 'http'
-import { WebSocketServer } from 'ws'
+import { createServer, IncomingMessage, ServerResponse } from 'http'
+import { WebSocket, WebSocketServer } from 'ws'
+
+// Типы
+interface Message {
+  id: string
+  content: string
+  author: string
+  createdAt: string
+}
+
+interface GraphQLRequest {
+  query: string
+  variables?: Record<string, unknown>
+  operationName?: string
+}
+
+interface GraphQLError {
+  message: string
+}
+
+interface GraphQLResponse {
+  data?: Record<string, unknown>
+  errors?: GraphQLError[]
+}
+
+interface WebSocketMessage {
+  type: 'data'
+  payload: Record<string, unknown>
+}
 
 // Хранилище сообщений
-let messages = [
+let messages: Message[] = [
   {
     id: '1',
-    content: 'Добро пожалуйста! Это первое сообщение.',
+    content: 'Добро пожаловать! Это первое сообщение.',
     author: 'System',
     createdAt: new Date().toISOString()
   }
@@ -13,23 +41,24 @@ let messages = [
 
 let nextId = 2
 
-// Простой GraphQL парсер
-function parseBody(body) {
+// Простой парсер тела запроса
+function parseBody(body: string): GraphQLRequest | null {
   try {
-    return JSON.parse(body)
+    return JSON.parse(body) as GraphQLRequest
   } catch (e) {
     return null
   }
 }
 
 // Выполнение GraphQL операций
-function executeOperation({ query, variables }) {
+function executeOperation(request: GraphQLRequest): GraphQLResponse {
+  const { query, variables } = request
   const cleanQuery = query.replace(/\s+/g, ' ').trim()
 
   // Запрос messages
   if (cleanQuery.includes('query') && cleanQuery.includes('messages')) {
     return {
-       data: {
+      data: {
         messages: messages.map(msg => ({
           id: msg.id,
           content: msg.content,
@@ -49,7 +78,7 @@ function executeOperation({ query, variables }) {
       }
     }
 
-    const newMessage = {
+    const newMessage: Message = {
       id: String(nextId++),
       content: String(content),
       author: String(author),
@@ -58,10 +87,11 @@ function executeOperation({ query, variables }) {
 
     messages.push(newMessage)
 
+    // Отправляем новое сообщение всем подключенным WebSocket клиентам
     broadcastNewMessage(newMessage)
 
     return {
-       data : {
+      data: {
         createMessage: newMessage
       }
     }
@@ -72,24 +102,27 @@ function executeOperation({ query, variables }) {
   }
 }
 
-const wsClients = new Set()
+// Храним подключенных WebSocket клиентов
+const wsClients = new Set<WebSocket>()
 
-function broadcastNewMessage(message) {
-  const payload = {
+// Отправка нового сообщения всем клиентам
+function broadcastNewMessage(message: Message): void {
+  const payload: WebSocketMessage = {
     type: 'data',
-     data: {
+    payload: {
       messageAdded: message
     }
   }
 
   wsClients.forEach(client => {
-    if (client.readyState === client.OPEN) {
+    if (client.readyState === WebSocket.OPEN) {
       client.send(JSON.stringify(payload))
     }
   })
 }
 
-const server = createServer((req, res) => {
+// Создаем HTTP сервер
+const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   // CORS заголовки
   res.setHeader('Access-Control-Allow-Origin', 'http://localhost:5173')
   res.setHeader('Access-Control-Allow-Credentials', 'true')
@@ -97,15 +130,17 @@ const server = createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
   res.setHeader('Content-Type', 'application/json')
 
+  // Preflight запросы
   if (req.method === 'OPTIONS') {
     res.writeHead(200)
     res.end()
     return
   }
 
+  // Только POST запросы к /graphql
   if (req.method === 'POST' && req.url === '/graphql') {
     let body = ''
-    req.on('data', chunk => {
+    req.on('data', (chunk: Buffer) => {
       body += chunk.toString()
     })
     
@@ -125,7 +160,7 @@ const server = createServer((req, res) => {
         console.error('Server error:', error)
         res.writeHead(400)
         res.end(JSON.stringify({
-          errors: [{ message: error.message }]
+          errors: [{ message: (error as Error).message }]
         }))
       }
     })
@@ -142,14 +177,14 @@ const server = createServer((req, res) => {
 // Создаем WebSocket сервер
 const wss = new WebSocketServer({ server, path: '/graphql' })
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws: WebSocket) => {
   console.log('✅ WebSocket client connected')
   wsClients.add(ws)
 
   // Отправляем текущие сообщения новому клиенту
-  const initialPayload = {
+  const initialPayload: WebSocketMessage = {
     type: 'data',
-     data: {
+    payload: {
       messages: messages
     }
   }
@@ -160,7 +195,7 @@ wss.on('connection', (ws) => {
     wsClients.delete(ws)
   })
 
-  ws.on('error', (error) => {
+  ws.on('error', (error: Error) => {
     console.error('WebSocket error:', error)
     wsClients.delete(ws)
   })

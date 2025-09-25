@@ -52,13 +52,17 @@
   </div>
 </template>
 
-<script>
-import { ref, computed, onMounted } from 'vue'
-import gql from 'graphql-tag'
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useMutation } from '../composables/useGraphQL'
 import { useWebSocket } from '../composables/useWebSocket'
+import { Message } from '../types'
 
-const CREATE_MESSAGE = gql`
+const newMessage = ref('')
+const loading = ref(false)
+const error = ref<Error | null>(null)
+
+const CREATE_MESSAGE = `
   mutation CreateMessage($content: String!, $author: String!) {
     createMessage(content: $content, author: $author) {
       id
@@ -69,64 +73,46 @@ const CREATE_MESSAGE = gql`
   }
 `
 
-export default {
-  name: 'MessageList',
-  setup() {
-    const newMessage = ref('')
-    const loading = ref(false)
-    const error = ref(null)
-    
-    const { loading: mutationLoading, mutate: createMessageMutation } = useMutation(CREATE_MESSAGE)
-    
-    const { 
-      isConnected, 
-      messages: wsMessages, 
-      error: wsError, 
-      connect 
-    } = useWebSocket('ws://localhost:4000/graphql')
-    
-    const messages = wsMessages
-    
-    const createMessage = async () => {
-      if (!newMessage.value.trim()) return
-      
-      try {
-        await createMessageMutation({
-          content: newMessage.value.trim(),
-          author: 'User' + Math.floor(Math.random() * 1000)
-        })
-        newMessage.value = ''
-      } catch (error) {
-        console.error('Error creating message:', error)
-      }
-    }
-    
-    const formatDate = (dateString) => {
-      return new Date(dateString).toLocaleString('ru-RU', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    }
-    
-    onMounted(() => {
-      connect()
+const { loading: mutationLoading, mutate: createMessageMutation } = useMutation(CREATE_MESSAGE)
+
+// WebSocket подключение
+const { 
+  isConnected, 
+  messages: wsMessages, 
+  error: wsError, 
+  connect 
+} = useWebSocket('ws://localhost:4000/graphql')
+
+const messages = wsMessages
+
+const createMessage = async (): Promise<void> => {
+  if (!newMessage.value.trim()) return
+  
+  try {
+    await createMessageMutation({
+      content: newMessage.value.trim(),
+      author: 'User' + Math.floor(Math.random() * 1000)
     })
-    
-    return {
-      newMessage,
-      messages,
-      loading,
-      error: error || wsError,
-      isConnected,
-      mutationLoading,
-      createMessage,
-      formatDate
-    }
+    newMessage.value = ''
+    // Сообщения будут автоматически обновлены через WebSocket
+  } catch (err) {
+    console.error('Error creating message:', err)
   }
 }
+
+const formatDate = (dateString: string): string => {
+  return new Date(dateString).toLocaleString('ru-RU', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+onMounted(() => {
+  connect()
+})
 </script>
 
 <style scoped>
@@ -163,6 +149,24 @@ export default {
 .message-form button:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+
+.connection-status {
+  padding: 10px;
+  margin-bottom: 20px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: bold;
+}
+
+.connection-status.connected {
+  background: #d4edda;
+  color: #155724;
+}
+
+.connection-status:not(.connected) {
+  background: #f8d7da;
+  color: #721c24;
 }
 
 .loading {
@@ -221,23 +225,5 @@ export default {
 .message-content {
   line-height: 1.5;
   color: #212529;
-}
-
-.connection-status {
-  padding: 10px;
-  margin-bottom: 20px;
-  border-radius: 6px;
-  text-align: center;
-  font-weight: bold;
-}
-
-.connection-status.connected {
-  background: #d4edda;
-  color: #155724;
-}
-
-.connection-status:not(.connected) {
-  background: #f8d7da;
-  color: #721c24;
 }
 </style>

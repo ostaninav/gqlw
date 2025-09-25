@@ -4,20 +4,13 @@
   </div>
 </template>
 
-<script>
+<script setup lang="ts">
 import MessageList from './components/MessageList.vue'
+import { provide } from 'vue'
+import apolloClient from './apollo'
 
-export default {
-  name: 'App',
-  components: {
-    MessageList
-  },
-  provide() {
-    return {
-      'apollo-client': this.$apollo
-    }
-  }
-}
+// Предоставляем Apollo Client в корневом компоненте
+provide('apollo-client', apolloClient)
 </script>
 
 <style>
